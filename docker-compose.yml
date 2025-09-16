@@ -1,20 +1,17 @@
-version: '3.8'
-
 services:
-  db:
+  attendance_db:
     image: postgres:15-alpine
     container_name: attendance_db
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_DB: attendance_db
       POSTGRES_USER: attendance_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123}
       POSTGRES_HOST_AUTH_METHOD: md5
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-    ports:
-      - "5432:5432"
+      # Use Unraid paths - adjust /mnt/user/appdata to your preference
+      - /mnt/user/appdata/attendance/postgres:/var/lib/postgresql/data
+      - /mnt/user/appdata/attendance/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     networks:
       - attendance_network
     healthcheck:
@@ -22,16 +19,17 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    labels:
+      - "net.unraid.docker.managed=composeman"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/postgres/postgres/master/doc/src/sgml/html/postgres-logo.png"
 
-  redis:
+  attendance_redis:
     image: redis:7-alpine
     container_name: attendance_redis
-    restart: always
+    restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
+      - /mnt/user/appdata/attendance/redis:/data
     networks:
       - attendance_network
     healthcheck:
@@ -39,30 +37,40 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    labels:
+      - "net.unraid.docker.managed=composeman"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/redis/redis/unstable/src/redis.png"
 
-  web:
+  attendance_web:
     build:
-      context: .
+      context: /mnt/user/appdata/attendance/app
       dockerfile: Dockerfile
+    # Alternative: Use pre-built image if you push to Docker Hub
+    # image: your-dockerhub-username/attendance:latest
     container_name: attendance_web
-    restart: always
+    restart: unless-stopped
     environment:
       - DEBUG=False
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-this}
-      - DATABASE_URL=postgresql://attendance_user:${POSTGRES_PASSWORD:-changeme123}@db:5432/attendance_db
-      - REDIS_URL=redis://redis:6379/0
-      - ALLOWED_HOSTS=localhost,127.0.0.1,${DOMAIN_NAME:-attendance.local},attendance.qitcare.co
-      - CSRF_TRUSTED_ORIGINS=https://${DOMAIN_NAME:-attendance.local},https://attendance.qitcare.co,http://localhost:8000
-      - USE_CLOUDFLARE=True
+      - DATABASE_URL=postgresql://attendance_user:${POSTGRES_PASSWORD:-changeme123}@attendance_db:5432/attendance_db
+      - REDIS_URL=redis://attendance_redis:6379/0
+      - ALLOWED_HOSTS=localhost,127.0.0.1,${DOMAIN_NAME:-attendance.local},${UNRAID_IP}
+      - CSRF_TRUSTED_ORIGINS=https://${DOMAIN_NAME:-attendance.local},http://localhost:8000,http://${UNRAID_IP}:8000
+      - USE_CLOUDFLARE=False
+      # Security settings for local deployment
+      - SECURE_SSL_REDIRECT=False
+      - SECURE_HSTS_SECONDS=0
+      - SESSION_COOKIE_SECURE=False
+      - CSRF_COOKIE_SECURE=False
     volumes:
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
+      - /mnt/user/appdata/attendance/static:/app/staticfiles
+      - /mnt/user/appdata/attendance/media:/app/media
     ports:
-      - "8000:8000"
+      - "${WEB_PORT:-8000}:8000"
     depends_on:
-      db:
+      attendance_db:
         condition: service_healthy
-      redis:
+      attendance_redis:
         condition: service_healthy
     networks:
       - attendance_network
@@ -70,17 +78,12 @@ services:
       sh -c "python manage.py collectstatic --noinput &&
              python manage.py migrate &&
              gunicorn attendance_system.wsgi:application --bind 0.0.0.0:8000 --workers 3 --access-logfile - --error-logfile -"
-
-volumes:
-  postgres_data:
-    driver: local
-  redis_data:
-    driver: local
-  static_volume:
-    driver: local
-  media_volume:
-    driver: local
+    labels:
+      - "net.unraid.docker.managed=composeman"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/django/django/main/django/contrib/admin/static/admin/img/icon-yes.svg"
+      - "net.unraid.docker.webui=http://[IP]:[PORT:8000]"
 
 networks:
   attendance_network:
     driver: bridge
+    name: attendance_network

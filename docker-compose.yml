@@ -49,6 +49,8 @@ services:
     # image: your-dockerhub-username/attendance:latest
     container_name: attendance_web
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       - DEBUG=False
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-this}
@@ -57,7 +59,7 @@ services:
       - ALLOWED_HOSTS=localhost,127.0.0.1,${DOMAIN_NAME:-attendance.local},${UNRAID_IP}
       - CSRF_TRUSTED_ORIGINS=https://${DOMAIN_NAME:-attendance.local},http://localhost:8000,http://${UNRAID_IP}:8000
       - USE_CLOUDFLARE=False
-      # Security settings for local deployment
+      # Security settings for tunnel deployment
       - SECURE_SSL_REDIRECT=False
       - SECURE_HSTS_SECONDS=0
       - SESSION_COOKIE_SECURE=False

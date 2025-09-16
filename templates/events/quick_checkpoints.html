@@ -1,0 +1,264 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Quick Checkpoint Setup - {{ event.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-magic"></i> Quick Checkpoint Setup
+                </h4>
+                <p class="mb-0 text-muted">{{ event.name }} | {{ event.date }} | {{ event.start_time }} - {{ event.end_time }}</p>
+            </div>
+            <div class="card-body">
+                <form method="post" id="quickSetupForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="{{ form.pattern.id_for_label }}" class="form-label">Choose Pattern *</label>
+                        {{ form.pattern }}
+                        <div class="form-text">Select a common checkpoint pattern or choose custom for manual setup.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.grace_period.id_for_label }}" class="form-label">Grace Period (minutes) *</label>
+                        {{ form.grace_period }}
+                        <div class="form-text">Time allowance before and after required time (e.g., 15 minutes means valid from 15 min before to 15 min after).</div>
+                    </div>
+
+                    <!-- Hourly Pattern Options -->
+                    <div id="hourly-options" class="pattern-options d-none">
+                        <h6 class="text-primary">Hourly Pattern Configuration</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.start_time.id_for_label }}" class="form-label">Start Time</label>
+                                {{ form.start_time }}
+                                <div class="form-text">First hourly check time</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.end_time.id_for_label }}" class="form-label">End Time</label>
+                                {{ form.end_time }}
+                                <div class="form-text">Last hourly check time</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Break Pattern Options -->
+                    <div id="break-options" class="pattern-options d-none">
+                        <h6 class="text-primary">Break Times Configuration</h6>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.morning_break.id_for_label }}" class="form-label">Morning Break</label>
+                                {{ form.morning_break }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.lunch_time.id_for_label }}" class="form-label">Lunch Time</label>
+                                {{ form.lunch_time }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.afternoon_break.id_for_label }}" class="form-label">Afternoon Break</label>
+                                {{ form.afternoon_break }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lunch Pattern Options -->
+                    <div id="lunch-options" class="pattern-options d-none">
+                        <h6 class="text-primary">Lunch Configuration</h6>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.lunch_time.id_for_label }}" class="form-label">Lunch Time</label>
+                            {{ form.lunch_time }}
+                        </div>
+                    </div>
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Warning:</strong> This will replace any existing checkpoints for this event.
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'events:checkpoints' event.pk %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-magic"></i> Generate Checkpoints
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Pattern Preview -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-eye"></i> Pattern Preview</h5>
+            </div>
+            <div class="card-body">
+                <div id="pattern-preview">
+                    <p class="text-muted">Select a pattern above to see the preview.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const patternSelect = document.getElementById('id_pattern');
+    const patternOptions = document.querySelectorAll('.pattern-options');
+    
+    // Pattern descriptions and previews
+    const patterns = {
+        'entrance_exit': {
+            title: 'Entrance + Exit Only',
+            description: 'Simple two-checkpoint system for event entry and exit.',
+            checkpoints: [
+                { name: 'Entrance Check', time: '{{ event.start_time }}', type: 'entrance' },
+                { name: 'Exit Check', time: '{{ event.end_time }}', type: 'exit' }
+            ]
+        },
+        'hourly': {
+            title: 'Hourly Checks',
+            description: 'Attendance check every hour between start and end times.',
+            checkpoints: [] // Will be generated dynamically
+        },
+        'entrance_lunch_exit': {
+            title: 'Entrance + Lunch + Exit',
+            description: 'Three checkpoints: entry, lunch break, and exit.',
+            checkpoints: [
+                { name: 'Entrance Check', time: '{{ event.start_time }}', type: 'entrance' },
+                { name: 'Lunch Break', time: '12:00', type: 'lunch' },
+                { name: 'Exit Check', time: '{{ event.end_time }}', type: 'exit' }
+            ]
+        },
+        'entrance_breaks_exit': {
+            title: 'Entrance + Breaks + Exit',
+            description: 'Full day tracking with morning break, lunch, and afternoon break.',
+            checkpoints: [
+                { name: 'Entrance Check', time: '{{ event.start_time }}', type: 'entrance' },
+                { name: 'Morning Break', time: '10:30', type: 'break' },
+                { name: 'Lunch Break', time: '12:00', type: 'lunch' },
+                { name: 'Afternoon Break', time: '15:30', type: 'break' },
+                { name: 'Exit Check', time: '{{ event.end_time }}', type: 'exit' }
+            ]
+        }
+    };
+    
+    function showPatternOptions() {
+        const selectedPattern = patternSelect.value;
+        
+        // Hide all options
+        patternOptions.forEach(option => option.classList.add('d-none'));
+        
+        // Show relevant options
+        if (selectedPattern === 'hourly') {
+            document.getElementById('hourly-options').classList.remove('d-none');
+        } else if (selectedPattern === 'entrance_breaks_exit') {
+            document.getElementById('break-options').classList.remove('d-none');
+        } else if (selectedPattern === 'entrance_lunch_exit') {
+            document.getElementById('lunch-options').classList.remove('d-none');
+        }
+        
+        updatePreview();
+    }
+    
+    function updatePreview() {
+        const selectedPattern = patternSelect.value;
+        const previewDiv = document.getElementById('pattern-preview');
+        
+        if (!selectedPattern || !patterns[selectedPattern]) {
+            previewDiv.innerHTML = '<p class="text-muted">Select a pattern above to see the preview.</p>';
+            return;
+        }
+        
+        const pattern = patterns[selectedPattern];
+        let checkpoints = pattern.checkpoints;
+        
+        // Generate hourly checkpoints dynamically
+        if (selectedPattern === 'hourly') {
+            const startTime = document.getElementById('id_start_time').value || '{{ event.start_time }}';
+            const endTime = document.getElementById('id_end_time').value || '{{ event.end_time }}';
+            
+            checkpoints = generateHourlyCheckpoints(startTime, endTime);
+        }
+        
+        let html = `
+            <h6>${pattern.title}</h6>
+            <p class="text-muted">${pattern.description}</p>
+            <div class="checkpoint-list">
+        `;
+        
+        checkpoints.forEach((checkpoint, index) => {
+            const badgeClass = {
+                'entrance': 'bg-success',
+                'exit': 'bg-danger',
+                'lunch': 'bg-warning text-dark',
+                'break': 'bg-info',
+                'hourly': 'bg-primary'
+            }[checkpoint.type] || 'bg-secondary';
+            
+            html += `
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge ${badgeClass} me-2">${index + 1}</span>
+                    <strong>${checkpoint.name}</strong>
+                    <span class="ms-auto text-muted">${checkpoint.time}</span>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        previewDiv.innerHTML = html;
+    }
+    
+    function generateHourlyCheckpoints(startTime, endTime) {
+        if (!startTime || !endTime) return [];
+        
+        const checkpoints = [];
+        const start = new Date(`2000-01-01 ${startTime}`);
+        const end = new Date(`2000-01-01 ${endTime}`);
+        
+        let current = new Date(start);
+        let counter = 1;
+        
+        while (current <= end) {
+            checkpoints.push({
+                name: `${current.toTimeString().slice(0, 5)} Check`,
+                time: current.toTimeString().slice(0, 5),
+                type: 'hourly'
+            });
+            current.setHours(current.getHours() + 1);
+            counter++;
+        }
+        
+        return checkpoints;
+    }
+    
+    // Event listeners
+    patternSelect.addEventListener('change', showPatternOptions);
+    document.getElementById('id_start_time').addEventListener('change', updatePreview);
+    document.getElementById('id_end_time').addEventListener('change', updatePreview);
+    
+    // Initial setup
+    showPatternOptions();
+});
+</script>
+
+<style>
+.checkpoint-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+</style>
+{% endblock %}

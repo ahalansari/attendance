@@ -1,0 +1,117 @@
+/* Custom styles for QR Attendance System */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.btn {
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.table {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+/* Print styles */
+@media print {
+    .navbar, .btn, .no-print {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+    }
+    
+    body {
+        background: white !important;
+    }
+}
+
+/* Mobile responsive improvements */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+}
+
+/* QR Code specific styles */
+.qr-container {
+    text-align: center;
+    padding: 2rem;
+}
+
+.qr-code-image {
+    max-width: 100%;
+    height: auto;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    background: white;
+}
+
+/* Stats cards */
+.stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+}
+
+/* Loading animations */
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Success/Error messages */
+.alert {
+    border-radius: 8px;
+    border: none;
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+    color: white;
+}
+
+.alert-danger {
+    background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+    color: white;
+}

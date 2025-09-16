@@ -1,0 +1,220 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ event.name }} - Event Details{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-calendar-event"></i> {{ event.name }}</h1>
+        <p class="text-muted mb-0">
+            {% if event.event_type == 'single' %}
+                <span class="badge bg-secondary">Single Event</span>
+            {% elif event.event_type == 'span' %}
+                <span class="badge bg-info">Multi-Day Event</span>
+            {% else %}
+                <span class="badge bg-warning text-dark">Recurring Event</span>
+            {% endif %}
+        </p>
+    </div>
+    <div>
+        <a href="{% url 'events:qr' event.pk %}" class="btn btn-success">
+            <i class="bi bi-qr-code"></i> Show Event QR Code
+        </a>
+        {% if event.event_type != 'single' %}
+            <a href="{% url 'events:sessions' event.pk %}" class="btn btn-outline-success">
+                <i class="bi bi-calendar-week"></i> Manage Sessions
+            </a>
+        {% endif %}
+        <a href="{% url 'events:checkpoints' event.pk %}" class="btn btn-info">
+            <i class="bi bi-check2-square"></i> Checkpoints
+        </a>
+        <a href="{% url 'events:edit' event.pk %}" class="btn btn-warning">
+            <i class="bi bi-pencil"></i> Edit Event
+        </a>
+        <a href="{% url 'events:list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Events
+        </a>
+    </div>
+</div>
+
+<!-- Event Information -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Event Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Event Name:</strong> {{ event.name }}</p>
+                        <p><strong>Location:</strong> {{ event.location }}</p>
+                        <p><strong>Created By:</strong> {{ event.created_by.username }}</p>
+                        <p><strong>Created At:</strong> {{ event.created_at }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Start Date:</strong> {{ event.date }}</p>
+                        {% if event.end_date %}
+                            <p><strong>End Date:</strong> {{ event.end_date }}</p>
+                            <p><strong>Duration:</strong> {{ event.duration_days }} days</p>
+                        {% endif %}
+                        <p><strong>Time:</strong> {{ event.start_time }} - {{ event.end_time }}</p>
+                        <p><strong>Status:</strong> 
+                            {% if event.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                {% if event.description %}
+                    <hr>
+                    <p><strong>Description:</strong></p>
+                    <p>{{ event.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    <h2 class="text-primary">{{ event.attendee_count }}</h2>
+                    <p class="mb-0">
+                        {% if event.event_type == 'single' %}
+                            Total Attendees
+                        {% else %}
+                            Unique Attendees
+                        {% endif %}
+                    </p>
+                </div>
+                {% if event.event_type != 'single' %}
+                    <hr>
+                    <div class="text-center">
+                        <h4 class="text-info">{{ event.total_sessions }}</h4>
+                        <p class="mb-0">Total Sessions</p>
+                    </div>
+                {% endif %}
+                <hr>
+                <div class="d-grid">
+                    <a href="{% url 'events:attendees' event.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-people"></i> View Attendees
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sessions for Multi-Date Events -->
+{% if event.event_type != 'single' and event_sessions %}
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-calendar-week"></i> Event Sessions</h5>
+            <a href="{% url 'events:sessions' event.pk %}" class="btn btn-sm btn-primary">View All Sessions</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Session</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Attendees</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in event_sessions|slice:":5" %}
+                    <tr>
+                        <td>Session {{ session.session_number }}</td>
+                        <td>{{ session.session_date }}</td>
+                        <td>{{ session.start_time }} - {{ session.end_time }}</td>
+                        <td><span class="badge bg-primary">{{ session.attendee_count }}</span></td>
+                        <td>
+                            <a href="{% url 'events:session_qr' session.pk %}" class="btn btn-sm btn-outline-success">
+                                <i class="bi bi-qr-code"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if event_sessions.count > 5 %}
+            <p class="text-muted text-center">Showing first 5 sessions. <a href="{% url 'events:sessions' event.pk %}">View all {{ event_sessions.count }} sessions</a></p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Attendance -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-check-square"></i> Recent Attendance</h5>
+    </div>
+    <div class="card-body">
+        {% if attendance_records or session_attendance %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Attendee</th>
+                            <th>Date & Time</th>
+                            {% if event.event_type != 'single' %}
+                                <th>Session</th>
+                            {% endif %}
+                            <th>IP Address</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Regular attendance records -->
+                        {% for record in attendance_records %}
+                        <tr>
+                            <td>
+                                <strong>{{ record.attendee.full_name }}</strong><br>
+                                <small class="text-muted">ID: {{ record.attendee.attendee_id }}</small>
+                            </td>
+                            <td>{{ record.timestamp }}</td>
+                            {% if event.event_type != 'single' %}
+                                <td><span class="badge bg-secondary">Single Event</span></td>
+                            {% endif %}
+                            <td><code>{{ record.ip_address }}</code></td>
+                        </tr>
+                        {% endfor %}
+                        
+                        <!-- Session attendance records -->
+                        {% for record in session_attendance %}
+                        <tr>
+                            <td>
+                                <strong>{{ record.attendee.full_name }}</strong><br>
+                                <small class="text-muted">ID: {{ record.attendee.attendee_id }}</small>
+                            </td>
+                            <td>{{ record.timestamp }}</td>
+                            <td>
+                                <span class="badge bg-info">Session {{ record.event_session.session_number }}</span><br>
+                                <small>{{ record.event_session.session_date }}</small>
+                            </td>
+                            <td><code>{{ record.ip_address }}</code></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-4">
+                <i class="bi bi-clipboard-x display-4 text-muted"></i>
+                <h5 class="mt-3">No Attendance Records</h5>
+                <p class="text-muted">No one has attended this event yet.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: attendance_db
+    restart: always
+    environment:
+      POSTGRES_DB: attendance_db
+      POSTGRES_USER: attendance_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123}
+      POSTGRES_HOST_AUTH_METHOD: md5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - attendance_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U attendance_user -d attendance_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: attendance_redis
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - attendance_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: attendance_web
+    restart: always
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-this}
+      - DATABASE_URL=postgresql://attendance_user:${POSTGRES_PASSWORD:-changeme123}@db:5432/attendance_db
+      - REDIS_URL=redis://redis:6379/0
+      - ALLOWED_HOSTS=localhost,127.0.0.1,${DOMAIN_NAME:-attendance.local}
+      - CSRF_TRUSTED_ORIGINS=https://${DOMAIN_NAME:-attendance.local},http://localhost:8000
+      - USE_CLOUDFLARE=True
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - attendance_network
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py migrate &&
+             gunicorn attendance_system.wsgi:application --bind 0.0.0.0:8000 --workers 3 --access-logfile - --error-logfile -"
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+
+networks:
+  attendance_network:
+    driver: bridge

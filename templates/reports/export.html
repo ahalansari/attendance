@@ -1,0 +1,127 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Export Data - QR Attendance System{% endblock %}
+
+{% block content %}
+<h1><i class="bi bi-download"></i> Export Attendance Data</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-funnel"></i> Export Filters</h5>
+            </div>
+            <div class="card-body">
+                <form id="exportForm">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="date_from" class="form-label">From Date</label>
+                            <input type="date" class="form-control" id="date_from" name="date_from">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="date_to" class="form-label">To Date</label>
+                            <input type="date" class="form-control" id="date_to" name="date_to">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="event" class="form-label">Event</label>
+                            <select class="form-control" id="event" name="event">
+                                <option value="">All Events</option>
+                                {% for event in events %}
+                                    <option value="{{ event.pk }}">{{ event.name }} - {{ event.date }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-arrow-down"></i> Export Options</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-file-earmark-excel display-3 text-success"></i>
+                                <h5 class="mt-3">Excel Export</h5>
+                                <p class="text-muted">Export data in Excel format (.xlsx) with formatting and formulas.</p>
+                                <button onclick="exportData('excel')" class="btn btn-success">
+                                    <i class="bi bi-file-earmark-excel"></i> Export to Excel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-filetype-csv display-3 text-primary"></i>
+                                <h5 class="mt-3">CSV Export</h5>
+                                <p class="text-muted">Export data in CSV format for use with other applications.</p>
+                                <button onclick="exportData('csv')" class="btn btn-primary">
+                                    <i class="bi bi-filetype-csv"></i> Export to CSV
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Export Information</h5>
+            </div>
+            <div class="card-body">
+                <h6>Included Data:</h6>
+                <ul>
+                    <li>Attendee ID and personal information</li>
+                    <li>Event names and details</li>
+                    <li>Session information (for multi-date events)</li>
+                    <li>Attendance timestamps</li>
+                    <li>IP addresses for tracking</li>
+                </ul>
+
+                <h6 class="mt-4">Export Features:</h6>
+                <ul>
+                    <li>Filter by date range</li>
+                    <li>Filter by specific event</li>
+                    <li>Combined regular and session attendance</li>
+                    <li>Sorted by timestamp</li>
+                </ul>
+
+                <div class="alert alert-info mt-4">
+                    <i class="bi bi-lightbulb"></i>
+                    <strong>Tip:</strong> Use date filters to export specific time periods, or select an event to get all attendance for that event.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportData(format) {
+    const form = document.getElementById('exportForm');
+    const formData = new FormData(form);
+    const params = new URLSearchParams(formData);
+    
+    let url;
+    if (format === 'excel') {
+        url = '/reports/export/excel/';
+    } else {
+        url = '/reports/export/csv/';
+    }
+    
+    if (params.toString()) {
+        url += '?' + params.toString();
+    }
+    
+    // Open in new window to trigger download
+    window.open(url, '_blank');
+}
+</script>
+{% endblock %}

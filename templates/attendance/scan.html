@@ -1,0 +1,240 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Scan Attendance - QR Attendance System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .scan-container {
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    .attendee-id-input {
+        font-size: 2rem;
+        text-align: center;
+        padding: 20px;
+        letter-spacing: 0.2em;
+    }
+    .scan-success {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+        margin: 20px 0;
+    }
+    .scan-error {
+        background: linear-gradient(45deg, #dc3545, #fd7e14);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+        margin: 20px 0;
+    }
+    .event-info {
+        background: linear-gradient(45deg, #007bff, #6610f2);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    .loading-spinner {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="scan-container">
+    {% if valid_qr %}
+        <div class="event-info">
+            <h2 class="text-center mb-3">
+                <i class="bi bi-calendar-event"></i> {{ event.name }}
+            </h2>
+            <div class="row text-center">
+                <div class="col-6">
+                    <i class="bi bi-calendar3"></i><br>
+                    <strong>{{ event.date }}</strong>
+                </div>
+                <div class="col-6">
+                    <i class="bi bi-clock"></i><br>
+                    <strong>{{ event.start_time }} - {{ event.end_time }}</strong>
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <i class="bi bi-geo-alt"></i> {{ event.location }}
+            </div>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-body">
+                <h4 class="text-center mb-4">
+                    <i class="bi bi-person-check"></i> Record Attendance
+                </h4>
+                
+                <form id="attendanceForm">
+                    <div class="mb-4">
+                        <label for="attendeeId" class="form-label">Enter your 5-digit ID:</label>
+                        <input type="text" 
+                               id="attendeeId" 
+                               class="form-control attendee-id-input" 
+                               maxlength="5" 
+                               pattern="[0-9]{5}" 
+                               placeholder="00000"
+                               required>
+                        <div class="form-text">Enter the 5-digit ID provided to you</div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                            <i class="bi bi-check-circle"></i> Record Attendance
+                        </button>
+                    </div>
+                </form>
+
+                <div class="loading-spinner text-center mt-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                    <p class="mt-2">Recording attendance...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultMessage"></div>
+
+    {% else %}
+        <div class="scan-error">
+            <h2 class="text-center">
+                <i class="bi bi-exclamation-triangle"></i> Invalid QR Code
+            </h2>
+            <p class="text-center mb-0">{{ error }}</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+// Device fingerprinting function
+function getDeviceFingerprint() {
+    return {
+        screen: `${screen.width}x${screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: navigator.language,
+        platform: navigator.platform,
+        userAgent: navigator.userAgent
+    };
+}
+
+// Format attendee ID input
+document.getElementById('attendeeId').addEventListener('input', function(e) {
+    this.value = this.value.replace(/\D/g, '');
+});
+
+// Handle form submission
+document.getElementById('attendanceForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const attendeeId = document.getElementById('attendeeId').value;
+    const submitBtn = document.getElementById('submitBtn');
+    const loadingSpinner = document.querySelector('.loading-spinner');
+    const resultMessage = document.getElementById('resultMessage');
+    
+    if (attendeeId.length !== 5) {
+        showMessage('Please enter a valid 5-digit ID.', 'error');
+        return;
+    }
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    loadingSpinner.style.display = 'block';
+    resultMessage.innerHTML = '';
+    
+    // Record attendance
+    fetch('/attendance/api/record/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            qr_code: '{{ event.qr_code }}',
+            attendee_id: attendeeId,
+            device_info: getDeviceFingerprint()
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        loadingSpinner.style.display = 'none';
+        
+        if (data.success) {
+            showMessage(
+                `<h4><i class="bi bi-check-circle"></i> Success!</h4>
+                 <p><strong>${data.attendee_name}</strong></p>
+                 <p>Attendance recorded for <strong>${data.event_name}</strong></p>
+                 <small>Time: ${data.timestamp}</small>`,
+                'success'
+            );
+            document.getElementById('attendanceForm').style.display = 'none';
+        } else {
+            showMessage(
+                `<h4><i class="bi bi-exclamation-triangle"></i> Error</h4>
+                 <p>${data.error}</p>`,
+                'error'
+            );
+            submitBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        loadingSpinner.style.display = 'none';
+        submitBtn.disabled = false;
+        showMessage(
+            `<h4><i class="bi bi-exclamation-triangle"></i> Error</h4>
+             <p>Network error. Please try again.</p>`,
+            'error'
+        );
+    });
+});
+
+function showMessage(message, type) {
+    const resultMessage = document.getElementById('resultMessage');
+    const className = type === 'success' ? 'scan-success' : 'scan-error';
+    resultMessage.innerHTML = `<div class="${className}">${message}</div>`;
+}
+</script>
+{% endblock %}
+
+{% block extra_js %}
+{% if valid_qr %}
+<script>
+// Auto-focus on the input field
+document.getElementById('attendeeId').focus();
+
+// Validate attendee ID on blur
+document.getElementById('attendeeId').addEventListener('blur', function() {
+    const attendeeId = this.value;
+    if (attendeeId.length === 5) {
+        fetch('/attendance/api/validate-id/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                attendee_id: attendeeId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+                this.title = `Attendee: ${data.attendee_name}`;
+            } else {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+                this.title = 'Invalid attendee ID';
+            }
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,184 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Dashboard - QR Attendance System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-speedometer2"></i> Dashboard</h1>
+    <div>
+        <a href="{% url 'events:create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> New Event
+        </a>
+        <a href="{% url 'attendees:create' %}" class="btn btn-success">
+            <i class="bi bi-person-plus"></i> New Attendee
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ total_events }}</h4>
+                        <p class="mb-0">Total Events</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-calendar-event display-6"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ total_attendees }}</h4>
+                        <p class="mb-0">Total Attendees</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-people display-6"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ today_attendance }}</h4>
+                        <p class="mb-0">Today's Attendance</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-check-square display-6"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ week_attendance }}</h4>
+                        <p class="mb-0">This Week</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-graph-up display-6"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active Events Today -->
+{% if active_events_today %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Active Events Today</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for event in active_events_today %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card border-primary">
+                            <div class="card-body">
+                                <h6 class="card-title">{{ event.name }}</h6>
+                                <p class="card-text">
+                                    <small class="text-muted">
+                                        <i class="bi bi-clock"></i> {{ event.start_time }} - {{ event.end_time }}<br>
+                                        <i class="bi bi-geo-alt"></i> {{ event.location }}
+                                    </small>
+                                </p>
+                                <a href="{% url 'events:qr' event.pk %}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-qr-code"></i> Show QR
+                                </a>
+                                <a href="{% url 'events:attendees' event.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-people"></i> Attendees
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <!-- Recent Events -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-calendar-event"></i> Recent Events</h5>
+                    <a href="{% url 'events:list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if recent_events %}
+                    <div class="list-group list-group-flush">
+                        {% for event in recent_events %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ event.name }}</h6>
+                                <small class="text-muted">
+                                    {{ event.date }} at {{ event.location }}
+                                </small>
+                            </div>
+                            <div>
+                                <span class="badge bg-primary rounded-pill">{{ event.attendee_count }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">No events created yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Attendance -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-check-square"></i> Recent Attendance</h5>
+                    <a href="{% url 'attendance:records' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if recent_attendance %}
+                    <div class="list-group list-group-flush">
+                        {% for record in recent_attendance %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ record.attendee.full_name }}</h6>
+                                <small>{{ record.timestamp|timesince }} ago</small>
+                            </div>
+                            <p class="mb-1">{{ record.event.name }}</p>
+                            <small class="text-muted">ID: {{ record.attendee.attendee_id }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">No attendance records yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

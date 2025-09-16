@@ -1,0 +1,536 @@
+{% extends 'base/base.html' %}
+
+{% block title %}
+    {% if valid_qr %}
+        {{ event.name }} - Attendance
+    {% else %}
+        Invalid QR Code
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if valid_qr %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h4><i class="bi bi-qr-code-scan"></i> {{ event.name }}</h4>
+                    <p class="mb-0">
+                        {% if event.event_type == 'single' %}
+                            <span class="badge bg-secondary">Single Event</span> | {{ event.date }}
+                        {% else %}
+                            <span class="badge bg-info">Multi-Day Event</span> | {{ event.date }} 
+                            {% if event.end_date %}to {{ event.end_date }}{% endif %}
+                        {% endif %}
+                    </p>
+                    <p class="mb-0 text-muted">{{ event.start_time }} - {{ event.end_time }} | {{ event.location }}</p>
+                </div>
+                <div class="card-body">
+                    {% if not is_valid_date %}
+                        <div class="alert alert-warning text-center">
+                            <i class="bi bi-calendar-x"></i>
+                            <h5>Event Not Active Today</h5>
+                            <p>This event is not scheduled for {{ current_date }}.</p>
+                            <p><strong>Available dates:</strong></p>
+                            <div class="available-dates">
+                                {% for date in available_dates %}
+                                    <span class="badge bg-info me-1">{{ date }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <!-- Date Selector for Multi-Day Events -->
+                        {% if event.event_type != 'single' and available_dates|length > 1 %}
+                        <div class="mb-3">
+                            <label for="targetDate" class="form-label">
+                                <i class="bi bi-calendar3"></i> Select Date
+                            </label>
+                            <select class="form-control" id="targetDate" name="target_date">
+                                {% for date in available_dates %}
+                                    <option value="{{ date }}" {% if date == current_date %}selected{% endif %}>
+                                        {{ date }} {% if date == current_date %}(Today){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+
+                        <!-- Checkpoint Selection -->
+                        <div id="checkpointSection">
+                            {% if current_checkpoints %}
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="bi bi-check2-square"></i> Available Checkpoints
+                                    </label>
+                                    <div id="checkpointList">
+                                        <!-- Checkpoints will be loaded here -->
+                                    </div>
+                                    <div class="form-text">Select a checkpoint or use general attendance</div>
+                                </div>
+                            {% endif %}
+
+                            <!-- General Attendance Option -->
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" name="attendance_type" 
+                                       id="generalAttendance" value="general" checked>
+                                <label class="form-check-label" for="generalAttendance">
+                                    <strong>General Attendance</strong>
+                                    <small class="text-muted d-block">Record basic attendance without specific checkpoints</small>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Attendee ID Input -->
+                        <div class="mb-3">
+                            <label for="attendeeId" class="form-label">
+                                <i class="bi bi-person-badge"></i> Attendee ID *
+                            </label>
+                            <input type="text" class="form-control form-control-lg text-center" 
+                                   id="attendeeId" name="attendee_id" 
+                                   placeholder="Enter your 5-digit ID"
+                                   maxlength="5" minlength="5" required>
+                            <div class="form-text">Enter your unique 5-digit attendee ID</div>
+                        </div>
+
+                        <!-- Location Privacy Notice -->
+                        <div class="alert alert-info py-2 mb-3">
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-info-circle me-2 mt-1"></i>
+                                <div>
+                                    <strong>Location Required</strong><br>
+                                    <small>
+                                        Your GPS location will be captured and stored for attendance verification purposes only. 
+                                        This helps ensure attendance is recorded at the correct venue.
+                                        <br><strong>Privacy:</strong> Location data is only used for attendance tracking and is not shared with third parties.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Location Status -->
+                        <div class="mb-3">
+                            <div class="d-flex align-items-center" id="locationStatus">
+                                <i class="bi bi-geo-alt text-muted me-2"></i>
+                                <span class="text-muted">Getting location...</span>
+                            </div>
+                            <div class="form-text" id="locationDetails">
+                                <small>Please allow location access when prompted</small>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                                <i class="bi bi-geo-alt-fill"></i> Getting Location...
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Success/Error Messages -->
+            <div id="messageContainer" class="mt-3"></div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white text-center">
+                    <h4><i class="bi bi-exclamation-triangle"></i> Invalid QR Code</h4>
+                </div>
+                <div class="card-body text-center">
+                    <h5>Event Not Found</h5>
+                    <p class="text-muted">{{ error }}</p>
+                    <p>Please ensure you're scanning a valid event QR code.</p>
+                    <a href="/" class="btn btn-primary">
+                        <i class="bi bi-house"></i> Go to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+{% if valid_qr and is_valid_date %}
+document.addEventListener('DOMContentLoaded', function() {
+    const attendeeIdInput = document.getElementById('attendeeId');
+    const submitBtn = document.getElementById('submitBtn');
+    const messageContainer = document.getElementById('messageContainer');
+    const targetDateSelect = document.getElementById('targetDate');
+    const checkpointList = document.getElementById('checkpointList');
+    const checkpointSection = document.getElementById('checkpointSection');
+    const locationStatus = document.getElementById('locationStatus');
+    
+    // GPS location variables
+    let userLocation = null;
+    let locationError = null;
+    
+    // Initialize location capture
+    initializeLocation();
+    
+    // Auto-focus on attendee ID input
+    attendeeIdInput.focus();
+
+    // Load checkpoints for current date
+    loadCheckpoints();
+
+    // Handle date change
+    if (targetDateSelect) {
+        targetDateSelect.addEventListener('change', loadCheckpoints);
+    }
+
+    // Auto-submit when 5 digits are entered
+    attendeeIdInput.addEventListener('input', function() {
+        if (this.value.length === 5) {
+            setTimeout(() => recordAttendance(), 100);
+        }
+    });
+
+    submitBtn.addEventListener('click', recordAttendance);
+
+    function initializeLocation() {
+        if (!navigator.geolocation) {
+            showLocationError('GPS not supported by this device');
+            return;
+        }
+
+        locationStatus.innerHTML = `
+            <i class="bi bi-geo-alt text-warning me-2"></i>
+            <span class="text-warning">Requesting location permission...</span>
+        `;
+
+        const options = {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 60000
+        };
+
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                userLocation = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy,
+                    timestamp: new Date().toISOString()
+                };
+                showLocationSuccess();
+            },
+            function(error) {
+                handleLocationError(error);
+            },
+            options
+        );
+    }
+
+    function showLocationSuccess() {
+        locationStatus.innerHTML = `
+            <i class="bi bi-geo-alt-fill text-success me-2"></i>
+            <span class="text-success">Location captured (±${Math.round(userLocation.accuracy)}m)</span>
+        `;
+        
+        // Update location details
+        const locationDetails = document.getElementById('locationDetails');
+        locationDetails.innerHTML = `
+            <small class="text-success">
+                <i class="bi bi-check-circle me-1"></i>
+                Coordinates: ${userLocation.latitude.toFixed(6)}, ${userLocation.longitude.toFixed(6)}
+                <br>Accuracy: ±${Math.round(userLocation.accuracy)} meters
+            </small>
+        `;
+        
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Record Attendance';
+    }
+
+    function handleLocationError(error) {
+        let errorMessage = 'Location unavailable';
+        switch(error.code) {
+            case error.PERMISSION_DENIED:
+                errorMessage = 'Location permission denied';
+                break;
+            case error.POSITION_UNAVAILABLE:
+                errorMessage = 'Location unavailable';
+                break;
+            case error.TIMEOUT:
+                errorMessage = 'Location timeout';
+                break;
+        }
+        
+        locationError = errorMessage;
+        showLocationError(errorMessage);
+    }
+
+    function showLocationError(errorMessage) {
+        locationStatus.innerHTML = `
+            <i class="bi bi-geo-alt text-danger me-2"></i>
+            <span class="text-danger">${errorMessage}</span>
+        `;
+        
+        // Update location details with helpful message
+        const locationDetails = document.getElementById('locationDetails');
+        let helpText = '';
+        
+        if (errorMessage.includes('permission denied')) {
+            helpText = `
+                <small class="text-warning">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    To enable location: Go to your browser settings → Privacy → Location → Allow for this site
+                    <br>Attendance will still be recorded, but without location verification.
+                </small>
+            `;
+        } else {
+            helpText = `
+                <small class="text-warning">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Unable to get location. Please ensure GPS is enabled and you have internet connectivity.
+                    <br>Attendance will still be recorded, but without location verification.
+                </small>
+            `;
+        }
+        
+        locationDetails.innerHTML = helpText;
+        
+        // Allow submission without location after 3 seconds
+        setTimeout(() => {
+            locationStatus.innerHTML = `
+                <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                <span class="text-warning">Proceeding without location</span>
+            `;
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Record Attendance';
+        }, 3000);
+    }
+
+    function loadCheckpoints() {
+        const targetDate = targetDateSelect ? targetDateSelect.value : '{{ current_date }}';
+        
+        fetch(`/attendance/api/checkpoints/{{ event.id }}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.checkpoints.length > 0) {
+                    renderCheckpoints(data.checkpoints, targetDate);
+                } else {
+                    checkpointList.innerHTML = '<p class="text-muted">No checkpoints available for this date.</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading checkpoints:', error);
+                checkpointList.innerHTML = '<p class="text-danger">Error loading checkpoints.</p>';
+            });
+    }
+
+    function renderCheckpoints(checkpoints, targetDate) {
+        const currentTime = new Date().toTimeString().slice(0, 5);
+        let html = '';
+        
+        checkpoints.forEach(checkpoint => {
+            // Check if checkpoint applies to selected date
+            const isWithinWindow = currentTime >= checkpoint.window_start && currentTime <= checkpoint.window_end;
+            const statusClass = isWithinWindow ? 'success' : 'secondary';
+            const statusText = isWithinWindow ? 'Active Now' : 'Inactive';
+            
+            html += `
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="attendance_type" 
+                           id="checkpoint_${checkpoint.id}" value="checkpoint" 
+                           data-checkpoint-id="${checkpoint.id}">
+                    <label class="form-check-label" for="checkpoint_${checkpoint.id}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>${checkpoint.name}</strong>
+                                <span class="badge bg-${statusClass} ms-2">${statusText}</span>
+                                <small class="text-muted d-block">
+                                    Required: ${checkpoint.required_time} | 
+                                    Window: ${checkpoint.window_start} - ${checkpoint.window_end}
+                                </small>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            `;
+        });
+        
+        checkpointList.innerHTML = html;
+    }
+
+    function recordAttendance() {
+        const attendeeId = attendeeIdInput.value.trim();
+        
+        if (!attendeeId) {
+            showMessage('Please enter your attendee ID.', 'danger');
+            return;
+        }
+
+        if (attendeeId.length !== 5) {
+            showMessage('Attendee ID must be exactly 5 digits.', 'danger');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Recording...';
+
+        // Get selected attendance type
+        const selectedType = document.querySelector('input[name="attendance_type"]:checked');
+        const isCheckpoint = selectedType.value === 'checkpoint';
+        const checkpointId = isCheckpoint ? selectedType.dataset.checkpointId : null;
+        const targetDate = targetDateSelect ? targetDateSelect.value : '{{ current_date }}';
+
+        const deviceInfo = {
+            screen: `${screen.width}x${screen.height}`,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            language: navigator.language,
+            platform: navigator.platform
+        };
+
+        // Prepare request data with location
+        const requestData = {
+            qr_code: '{{ event.qr_code }}',
+            attendee_id: attendeeId,
+            checkpoint_id: checkpointId,
+            target_date: targetDate,
+            device_info: deviceInfo
+        };
+
+        // Add location data if available
+        if (userLocation) {
+            requestData.location = userLocation;
+        } else if (locationError) {
+            requestData.location_error = locationError;
+        }
+
+        fetch('/attendance/api/record-unified/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSuccessMessage(data);
+                attendeeIdInput.value = '';
+                // Uncheck all radio buttons
+                document.querySelectorAll('input[name="attendance_type"]').forEach(radio => {
+                    radio.checked = radio.id === 'generalAttendance';
+                });
+            } else {
+                showMessage(data.error, 'danger');
+            }
+            resetForm();
+        })
+        .catch(error => {
+            showMessage('Network error. Please try again.', 'danger');
+            resetForm();
+        });
+    }
+
+    function showSuccessMessage(data) {
+        let badgeClass = 'success';
+        if (data.status === 'late') badgeClass = 'warning';
+        else if (data.status === 'early') badgeClass = 'info';
+
+        const locationInfo = data.location_captured ? 
+            '<i class="bi bi-geo-alt-fill text-success me-1"></i>Location verified' : 
+            '<i class="bi bi-geo-alt text-muted me-1"></i>No location data';
+            
+        const locationError = data.location_error ? 
+            `<br><small class="text-warning">Location note: ${data.location_error}</small>` : '';
+
+        const message = `
+            <div class="alert alert-success">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <div class="flex-grow-1">
+                        <strong>Attendance Recorded Successfully!</strong><br>
+                        <small>
+                            <strong>${data.attendee_name}</strong> - ${data.event_name}<br>
+                            ${data.checkpoint_name ? `Checkpoint: ${data.checkpoint_name}<br>` : ''}
+                            ${data.status ? `Status: <span class="badge bg-${badgeClass}">${data.status}</span> | ` : ''}
+                            Time: ${data.timestamp}<br>
+                            ${locationInfo}${locationError}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        `;
+        messageContainer.innerHTML = message;
+
+        // Auto-hide success message after 5 seconds
+        setTimeout(() => {
+            messageContainer.innerHTML = '';
+        }, 5000);
+    }
+
+    function showMessage(message, type) {
+        const alertClass = type === 'danger' ? 'alert-danger' : 'alert-warning';
+        const icon = type === 'danger' ? 'bi-exclamation-triangle' : 'bi-info-circle';
+        
+        messageContainer.innerHTML = `
+            <div class="alert ${alertClass}">
+                <i class="${icon} me-2"></i>${message}
+            </div>
+        `;
+
+        // Auto-hide error messages after 3 seconds
+        setTimeout(() => {
+            messageContainer.innerHTML = '';
+        }, 3000);
+    }
+
+    function resetForm() {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Record Attendance';
+        attendeeIdInput.focus();
+    }
+
+    function getCSRFToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+});
+{% endif %}
+</script>
+
+<style>
+.card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.form-control-lg {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+#attendeeId {
+    letter-spacing: 0.2em;
+}
+
+.alert {
+    border-radius: 0.5rem;
+}
+
+.available-dates {
+    line-height: 2;
+}
+
+.form-check-label {
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 0.5rem;
+    }
+    
+    .card {
+        margin: 0;
+    }
+}
+</style>
+{% endblock %}

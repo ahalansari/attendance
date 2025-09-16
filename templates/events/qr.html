@@ -1,0 +1,128 @@
+{% extends 'base/base.html' %}
+
+{% block title %}QR Code - {{ event.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-qr-code"></i> QR Code for {{ event.name }}
+                    </h4>
+                    <div>
+                        <a href="{% url 'events:print' event.pk %}" class="btn btn-primary" target="_blank">
+                            <i class="bi bi-printer"></i> Print
+                        </a>
+                        <button onclick="copyToClipboard('{{ qr_url }}')" class="btn btn-outline-primary">
+                            <i class="bi bi-clipboard"></i> Copy URL
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body text-center">
+                <div class="qr-container">
+                    <img src="data:image/png;base64,{{ qr_image }}" 
+                         alt="QR Code for {{ event.name }}" 
+                         class="qr-code-image mb-4">
+                    
+                    <h5>{{ event.name }}</h5>
+                    <p class="text-muted">
+                        {% if event.event_type == 'single' %}
+                            <i class="bi bi-calendar3"></i> {{ event.date }} | 
+                            <i class="bi bi-clock"></i> {{ event.start_time }} - {{ event.end_time }}<br>
+                        {% else %}
+                            <span class="badge bg-info mb-2">Multi-Day Event</span><br>
+                            <i class="bi bi-calendar3"></i> {{ event.date }} 
+                            {% if event.end_date %}to {{ event.end_date }}{% endif %} | 
+                            <i class="bi bi-clock"></i> {{ event.start_time }} - {{ event.end_time }}<br>
+                        {% endif %}
+                        <i class="bi bi-geo-alt"></i> {{ event.location }}
+                    </p>
+                    
+                    {% if event.event_type != 'single' %}
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i>
+                        <strong>Single QR Code for Entire Event!</strong><br>
+                        <small>This QR code works for all {{ event.duration_days }} days. Attendees will see relevant checkpoints based on the current date.</small>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-4 p-3 bg-light rounded">
+                        <h6>Attendance URL:</h6>
+                        <code>{{ qr_url }}</code>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-calendar-check"></i> Event Type</h6>
+                                <span class="badge bg-secondary">{{ event.get_event_type_display }}</span>
+                                {% if event.event_type != 'single' %}
+                                    <p class="small text-muted mt-2">Duration: {{ event.duration_days }} days</p>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-check2-square"></i> Checkpoints</h6>
+                                {% if event.attendancecheckpoint_set.exists %}
+                                    <span class="badge bg-primary">{{ event.attendancecheckpoint_set.count }} configured</span>
+                                    <p class="small text-muted mt-2">
+                                        <a href="{% url 'events:checkpoints' event.pk %}">Manage checkpoints</a>
+                                    </p>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">None configured</span>
+                                    <p class="small text-muted mt-2">
+                                        <a href="{% url 'events:checkpoints' event.pk %}">Setup checkpoints</a>
+                                    </p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <p class="text-muted small">
+                            <i class="bi bi-info-circle"></i> 
+                            {% if event.event_type == 'single' %}
+                                Attendees can scan this QR code to record their attendance.
+                            {% else %}
+                                Attendees can scan this QR code on any event day. The system will automatically show available checkpoints for the current date.
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="row text-center">
+                    <div class="col-4">
+                        <a href="{% url 'events:detail' event.pk %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i> Event Details
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="{% url 'events:attendees' event.pk %}" class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-people"></i> Attendees
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="{% url 'events:list' %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left"></i> Back to Events
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        alert('QR code URL copied to clipboard!');
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+        alert('Failed to copy URL');
+    });
+}
+</script>
+{% endblock %}

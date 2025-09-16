@@ -1,0 +1,154 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Reports - QR Attendance System{% endblock %}
+
+{% block content %}
+<h1><i class="bi bi-graph-up"></i> Reports & Analytics</h1>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-funnel"></i> Filter Reports</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="date_from" class="form-label">From Date</label>
+                        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_to" class="form-label">To Date</label>
+                        <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="event" class="form-label">Event</label>
+                        <select class="form-control" id="event" name="event">
+                            <option value="">All Events</option>
+                            {% for event in events %}
+                                <option value="{{ event.pk }}" {% if selected_event == event.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ event.name }} - {{ event.date }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search"></i> Filter
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-file-earmark-excel"></i> Export Options</h5>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Export filtered attendance data to Excel or CSV format.</p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'reports:export_excel' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-success">
+                        <i class="bi bi-file-earmark-excel"></i> Export to Excel
+                    </a>
+                    <a href="{% url 'reports:export_csv' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-success">
+                        <i class="bi bi-filetype-csv"></i> Export to CSV
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h2>{{ total_records }}</h2>
+                        <p class="mb-0">Total Records Found</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-check-square display-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-table"></i> Attendance Data (Latest 100 Records)</h5>
+    </div>
+    <div class="card-body">
+        {% if attendance_records %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Attendee</th>
+                            <th>Event</th>
+                            <th>Session Info</th>
+                            <th>Location</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in attendance_records %}
+                        <tr>
+                            <td>{{ record.timestamp|date:"M d, Y" }}</td>
+                            <td>{{ record.timestamp|time:"H:i" }}</td>
+                            <td>
+                                <strong>{{ record.attendee.full_name }}</strong><br>
+                                <small class="text-muted">ID: {{ record.attendee.attendee_id }}</small>
+                            </td>
+                            <td>
+                                {% if record.event %}
+                                    {{ record.event.name }}
+                                {% elif record.event_session %}
+                                    {{ record.event_session.event.name }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.event %}
+                                    <span class="badge bg-secondary">Single Event</span>
+                                {% elif record.event_session %}
+                                    <span class="badge bg-info">Session {{ record.event_session.session_number }}</span><br>
+                                    <small>{{ record.event_session.session_date }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.event %}
+                                    {{ record.event.location|truncatechars:25 }}
+                                {% elif record.event_session %}
+                                    {{ record.event_session.location|truncatechars:25 }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if total_records > 100 %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    Showing latest 100 records of {{ total_records }} total. Use export function to get all data.
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-4">
+                <i class="bi bi-clipboard-x display-4 text-muted"></i>
+                <h5 class="mt-3">No Data Found</h5>
+                <p class="text-muted">No attendance records match your filter criteria.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

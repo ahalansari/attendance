@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ session.event.name }} - Session {{ session.session_number }} QR Code</title>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        .qr-container {
+            border: 2px solid #000;
+            padding: 30px;
+            margin: 0 auto;
+            max-width: 600px;
+            background: white;
+        }
+        
+        .qr-code {
+            margin: 20px 0;
+        }
+        
+        .event-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .session-title {
+            font-size: 20px;
+            color: #0066cc;
+            margin-bottom: 15px;
+        }
+        
+        .event-details {
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        
+        .instructions {
+            font-size: 14px;
+            color: #666;
+            margin-top: 20px;
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+        }
+        
+        .url {
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            background: #f5f5f5;
+            padding: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="qr-container">
+        <div class="event-title">{{ event.name }}</div>
+        <div class="session-title">Session {{ session.session_number }}</div>
+        
+        <div class="qr-code">
+            <img src="data:image/png;base64,{{ qr_image }}" 
+                 alt="QR Code for {{ session }}"
+                 style="max-width: 300px; height: auto;">
+        </div>
+        
+        <div class="event-details">
+            <strong>Date:</strong> {{ session.session_date }}<br>
+            <strong>Time:</strong> {{ session.start_time }} - {{ session.end_time }}<br>
+            <strong>Location:</strong> {{ session.location }}
+        </div>
+        
+        {% if session.notes %}
+        <div class="event-details">
+            <strong>Notes:</strong> {{ session.notes }}
+        </div>
+        {% endif %}
+        
+        <div class="instructions">
+            <strong>Instructions for Attendees:</strong><br>
+            1. Scan this QR code with your mobile device<br>
+            2. Enter your 5-digit attendee ID<br>
+            3. Confirm your attendance<br><br>
+            
+            <div class="url">{{ request.scheme }}://{{ request.get_host }}/scan/session/{{ session.qr_code }}/</div>
+        </div>
+    </div>
+    
+    <div class="no-print" style="margin-top: 30px;">
+        <button onclick="window.print()" class="btn" style="padding: 10px 20px; font-size: 16px;">
+            Print QR Code
+        </button>
+        <button onclick="window.close()" class="btn" style="padding: 10px 20px; font-size: 16px; margin-left: 10px;">
+            Close
+        </button>
+    </div>
+    
+    <script>
+        // Auto-print when page loads
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 500);
+        };
+    </script>
+</body>
+</html>

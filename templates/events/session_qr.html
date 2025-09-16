@@ -1,0 +1,98 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Session QR Code - {{ session.event.name }} Session {{ session.session_number }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0">
+                            <i class="bi bi-qr-code"></i> Session QR Code
+                        </h4>
+                        <p class="mb-0 text-muted">{{ event.name }} - Session {{ session.session_number }}</p>
+                    </div>
+                    <div>
+                        <a href="{% url 'events:session_print' session.pk %}" class="btn btn-primary" target="_blank">
+                            <i class="bi bi-printer"></i> Print
+                        </a>
+                        <button onclick="copyToClipboard('{{ qr_url }}')" class="btn btn-outline-primary">
+                            <i class="bi bi-clipboard"></i> Copy URL
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body text-center">
+                <div class="qr-container">
+                    <img src="data:image/png;base64,{{ qr_image }}" 
+                         alt="QR Code for {{ session }}" 
+                         class="qr-code-image mb-4">
+                    
+                    <h5>{{ event.name }}</h5>
+                    <h6 class="text-primary">Session {{ session.session_number }}</h6>
+                    <p class="text-muted">
+                        <i class="bi bi-calendar3"></i> {{ session.session_date }} | 
+                        <i class="bi bi-clock"></i> {{ session.start_time }} - {{ session.end_time }}<br>
+                        <i class="bi bi-geo-alt"></i> {{ session.location }}
+                    </p>
+                    
+                    {% if session.notes %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> {{ session.notes }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="mt-4 p-3 bg-light rounded">
+                        <h6>Session QR Code URL:</h6>
+                        <code>{{ qr_url }}</code>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <p class="text-muted small">
+                            <i class="bi bi-info-circle"></i> 
+                            Attendees can scan this QR code to record their attendance for this specific session.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="row text-center">
+                    <div class="col-3">
+                        <a href="{% url 'events:detail' event.pk %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i> Event Details
+                        </a>
+                    </div>
+                    <div class="col-3">
+                        <a href="{% url 'events:sessions' event.pk %}" class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-calendar-week"></i> All Sessions
+                        </a>
+                    </div>
+                    <div class="col-3">
+                        <a href="{% url 'events:attendees' event.pk %}" class="btn btn-outline-success btn-sm">
+                            <i class="bi bi-people"></i> Attendees
+                        </a>
+                    </div>
+                    <div class="col-3">
+                        <a href="{% url 'events:list' %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left"></i> Events
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        alert('Session QR code URL copied to clipboard!');
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+        alert('Failed to copy URL');
+    });
+}
+</script>
+{% endblock %}

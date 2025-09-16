@@ -1,0 +1,95 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Bulk Import Attendees - QR Attendance System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-upload"></i> Bulk Import Attendees
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Upload CSV File</h5>
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="{{ form.csv_file.id_for_label }}" class="form-label">CSV File *</label>
+                                {{ form.csv_file }}
+                                {% if form.csv_file.errors %}
+                                    <div class="text-danger small">{{ form.csv_file.errors.0 }}</div>
+                                {% endif %}
+                                <div class="form-text">{{ form.csv_file.help_text }}</div>
+                            </div>
+
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'attendees:list' %}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left"></i> Cancel
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-upload"></i> Import Attendees
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5>CSV Format Instructions</h5>
+                        <div class="alert alert-info">
+                            <p><strong>Required CSV format:</strong></p>
+                            <p>Your CSV file must include the following columns:</p>
+                            <ul>
+                                <li><code>first_name</code> - Required</li>
+                                <li><code>last_name</code> - Required</li>
+                                <li><code>email</code> - Optional</li>
+                                <li><code>phone</code> - Optional</li>
+                            </ul>
+                        </div>
+                        
+                        <h6>Sample CSV Content:</h6>
+                        <div class="bg-light p-3 mb-3" style="font-family: monospace; font-size: 12px;">
+first_name,last_name,email,phone<br>
+John,Smith,john.smith@email.com,+1234567890<br>
+Jane,Doe,jane.doe@email.com,+1234567891<br>
+Mike,Johnson,mike.j@email.com,+1234567892
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Note:</strong>
+                            <ul class="mb-0">
+                                <li>Unique 5-digit IDs will be automatically generated</li>
+                                <li>Existing attendees (by email) will be skipped</li>
+                                <li>Maximum file size: 10MB</li>
+                            </ul>
+                        </div>
+                        
+                        <a href="#" onclick="downloadSample()" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-download"></i> Download Sample CSV
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function downloadSample() {
+    const csvContent = "first_name,last_name,email,phone\nJohn,Smith,john.smith@email.com,+1234567890\nJane,Doe,jane.doe@email.com,+1234567891\nMike,Johnson,mike.j@email.com,+1234567892";
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'attendees_sample.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

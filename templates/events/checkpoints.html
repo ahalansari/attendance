@@ -1,0 +1,265 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Checkpoints - {{ event.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-check2-square"></i> Attendance Checkpoints</h1>
+        <h4 class="text-muted">{{ event.name }}</h4>
+        <p class="text-muted mb-0">
+            {{ event.date }}
+            {% if event.end_date %} to {{ event.end_date }}{% endif %}
+            | {{ event.start_time }} - {{ event.end_time }}
+        </p>
+    </div>
+    <div>
+        <a href="{% url 'events:quick_checkpoints' event.pk %}" class="btn btn-success">
+            <i class="bi bi-magic"></i> Quick Setup
+        </a>
+        <a href="{% url 'events:create_checkpoint' event.pk %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add Checkpoint
+        </a>
+        {% if event.event_type != 'single' and checkpoints %}
+        <a href="{% url 'events:batch_checkpoints' event.pk %}" class="btn btn-info">
+            <i class="bi bi-calendar-plus"></i> Generate for All Days
+        </a>
+        {% endif %}
+        <a href="{% url 'events:detail' event.pk %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Event
+        </a>
+    </div>
+</div>
+
+{% if checkpoints %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-list-check"></i> Configured Checkpoints ({{ checkpoints.count }})
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Order</th>
+                            <th>Checkpoint</th>
+                            <th>Type</th>
+                            <th>Required Time</th>
+                            <th>Time Window</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for checkpoint in checkpoints %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-secondary">#{{ checkpoint.order }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ checkpoint.name }}</strong>
+                                {% if checkpoint.description %}
+                                    <br><small class="text-muted">{{ checkpoint.description|truncatechars:50 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ checkpoint.get_checkpoint_type_display }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ checkpoint.required_time }}</strong>
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {{ checkpoint.window_start }} - {{ checkpoint.window_end }}<br>
+                                    (±{{ checkpoint.grace_period_minutes }} min)
+                                </small>
+                            </td>
+                            <td>
+                                {% if checkpoint.is_required %}
+                                    <span class="badge bg-danger">Required</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Optional</span>
+                                {% endif %}
+                                {% if checkpoint.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'events:edit_checkpoint' checkpoint.pk %}" class="btn btn-outline-primary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-success" onclick="showQRCode('{{ checkpoint.checkpoint_code }}', '{{ checkpoint.name }}')">
+                                        <i class="bi bi-qr-code"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger" onclick="deleteCheckpoint({{ checkpoint.pk }}, '{{ checkpoint.name }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkpoint Timeline Visualization -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-clock-history"></i> Checkpoint Timeline</h5>
+        </div>
+        <div class="card-body">
+            <div class="timeline">
+                {% for checkpoint in checkpoints %}
+                <div class="timeline-item">
+                    <div class="timeline-marker 
+                        {% if checkpoint.checkpoint_type == 'entrance' %}bg-success
+                        {% elif checkpoint.checkpoint_type == 'exit' %}bg-danger
+                        {% elif checkpoint.checkpoint_type == 'lunch' %}bg-warning
+                        {% elif checkpoint.checkpoint_type == 'break' %}bg-info
+                        {% else %}bg-primary{% endif %}">
+                        {{ checkpoint.order }}
+                    </div>
+                    <div class="timeline-content">
+                        <h6>{{ checkpoint.name }}</h6>
+                        <p class="mb-1">
+                            <strong>{{ checkpoint.required_time }}</strong> 
+                            <span class="text-muted">({{ checkpoint.window_start }} - {{ checkpoint.window_end }})</span>
+                        </p>
+                        {% if checkpoint.description %}
+                            <small class="text-muted">{{ checkpoint.description }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-check2-square display-1 text-muted"></i>
+            <h4 class="mt-3">No Checkpoints Configured</h4>
+            <p class="text-muted">Set up attendance checkpoints to track multiple scan requirements during this event.</p>
+            <div class="mt-4">
+                <a href="{% url 'events:quick_checkpoints' event.pk %}" class="btn btn-success me-2">
+                    <i class="bi bi-magic"></i> Quick Setup
+                </a>
+                <a href="{% url 'events:create_checkpoint' event.pk %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Add First Checkpoint
+                </a>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+<!-- QR Code Modal -->
+<div class="modal fade" id="qrModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Checkpoint QR Code</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <h6 id="checkpointName"></h6>
+                <div id="qrCodeContainer"></div>
+                <p class="mt-3">
+                    <small class="text-muted">Scan this QR code to record attendance for this specific checkpoint.</small>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -22px;
+    top: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+    border: 3px solid white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.timeline-content {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border-left: 3px solid #007bff;
+}
+</style>
+
+<script>
+function showQRCode(checkpointCode, checkpointName) {
+    document.getElementById('checkpointName').textContent = checkpointName;
+    
+    // Generate QR code URL
+    const qrUrl = `${window.location.origin}/scan/checkpoint/${checkpointCode}/`;
+    
+    // Create QR code using a simple service (you might want to use a library instead)
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrUrl)}`;
+    
+    document.getElementById('qrCodeContainer').innerHTML = `
+        <img src="${qrCodeUrl}" alt="QR Code" class="img-fluid">
+        <div class="mt-2">
+            <code>${qrUrl}</code>
+        </div>
+    `;
+    
+    new bootstrap.Modal(document.getElementById('qrModal')).show();
+}
+
+function deleteCheckpoint(checkpointId, checkpointName) {
+    if (confirm(`Are you sure you want to delete the checkpoint "${checkpointName}"? This action cannot be undone.`)) {
+        fetch(`/events/checkpoints/${checkpointId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Error deleting checkpoint. Please try again.');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

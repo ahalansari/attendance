@@ -1,0 +1,298 @@
+{% extends 'base/base.html' %}
+
+{% block title %}
+    {% if valid_qr %}
+        Checkpoint: {{ checkpoint.name }} - {{ event.name }}
+    {% else %}
+        Invalid Checkpoint QR Code
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if valid_qr %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h4><i class="bi bi-check2-square"></i> Checkpoint Attendance</h4>
+                    <h5 class="text-primary">{{ checkpoint.name }}</h5>
+                    <p class="mb-0">{{ event.name }}</p>
+                    {% if event_session %}
+                        <p class="mb-0 text-muted">Session {{ event_session.session_number }} - {{ event_session.session_date }}</p>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <!-- Checkpoint Status -->
+                    <div class="alert 
+                        {% if is_within_window %}alert-success
+                        {% else %}alert-warning{% endif %} text-center">
+                        <i class="bi bi-clock"></i>
+                        <strong>Required Time: {{ checkpoint.required_time }}</strong><br>
+                        <small>Valid window: {{ window_start }} - {{ window_end }}</small><br>
+                        <small>
+                            {% if is_within_window %}
+                                <span class="text-success">✓ Currently within attendance window</span>
+                            {% else %}
+                                <span class="text-warning">⚠ Outside attendance window</span>
+                            {% endif %}
+                        </small>
+                    </div>
+
+                    <!-- Attendance Form -->
+                    <form id="attendanceForm">
+                        <div class="mb-3">
+                            <label for="attendeeId" class="form-label">
+                                <i class="bi bi-person-badge"></i> Attendee ID *
+                            </label>
+                            <input type="text" class="form-control form-control-lg text-center" 
+                                   id="attendeeId" name="attendee_id" 
+                                   placeholder="Enter your 5-digit ID"
+                                   maxlength="5" minlength="5" required>
+                            <div class="form-text">Enter your unique 5-digit attendee ID</div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                <i class="bi bi-check-circle"></i> Record Checkpoint Attendance
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Checkpoint Info -->
+                    <div class="mt-4">
+                        <h6><i class="bi bi-info-circle"></i> Checkpoint Information</h6>
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Type:</small><br>
+                                <span class="badge bg-info">{{ checkpoint.get_checkpoint_type_display }}</span>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Order:</small><br>
+                                <span class="badge bg-secondary">#{{ checkpoint.order }}</span>
+                            </div>
+                        </div>
+                        {% if checkpoint.description %}
+                            <div class="mt-2">
+                                <small class="text-muted">Description:</small><br>
+                                <small>{{ checkpoint.description }}</small>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Success/Error Messages -->
+            <div id="messageContainer" class="mt-3"></div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white text-center">
+                    <h4><i class="bi bi-exclamation-triangle"></i> Invalid QR Code</h4>
+                </div>
+                <div class="card-body text-center">
+                    <h5>Checkpoint Not Found</h5>
+                    <p class="text-muted">{{ error }}</p>
+                    <p>Please ensure you're scanning a valid checkpoint QR code.</p>
+                    <a href="/" class="btn btn-primary">
+                        <i class="bi bi-house"></i> Go to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+{% if valid_qr %}
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('attendanceForm');
+    const attendeeIdInput = document.getElementById('attendeeId');
+    const submitBtn = document.getElementById('submitBtn');
+    const messageContainer = document.getElementById('messageContainer');
+
+    // Auto-focus on attendee ID input
+    attendeeIdInput.focus();
+
+    // Auto-submit when 5 digits are entered
+    attendeeIdInput.addEventListener('input', function() {
+        if (this.value.length === 5) {
+            setTimeout(() => form.requestSubmit(), 100);
+        }
+    });
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        recordAttendance();
+    });
+
+    function recordAttendance() {
+        const attendeeId = attendeeIdInput.value.trim();
+        
+        if (!attendeeId) {
+            showMessage('Please enter your attendee ID.', 'danger');
+            return;
+        }
+
+        if (attendeeId.length !== 5) {
+            showMessage('Attendee ID must be exactly 5 digits.', 'danger');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Recording...';
+
+        // Validate attendee ID first
+        fetch('/attendance/api/validate-id/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ attendee_id: attendeeId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // If valid, record checkpoint attendance
+                return recordCheckpointAttendance(attendeeId);
+            } else {
+                throw new Error(data.error || 'Invalid attendee ID');
+            }
+        })
+        .catch(error => {
+            showMessage(error.message, 'danger');
+            resetForm();
+        });
+    }
+
+    function recordCheckpointAttendance(attendeeId) {
+        const deviceInfo = {
+            screen: `${screen.width}x${screen.height}`,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            language: navigator.language,
+            platform: navigator.platform
+        };
+
+        fetch('/attendance/api/record-checkpoint/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                checkpoint_code: '{{ checkpoint.checkpoint_code }}',
+                attendee_id: attendeeId,
+                device_info: deviceInfo
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSuccessMessage(data);
+                attendeeIdInput.value = '';
+            } else {
+                showMessage(data.error, 'danger');
+            }
+            resetForm();
+        })
+        .catch(error => {
+            showMessage('Network error. Please try again.', 'danger');
+            resetForm();
+        });
+    }
+
+    function showSuccessMessage(data) {
+        const statusBadge = {
+            'on time': 'success',
+            'late': 'warning',
+            'early': 'info'
+        }[data.status] || 'success';
+
+        const message = `
+            <div class="alert alert-success">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <div class="flex-grow-1">
+                        <strong>Attendance Recorded Successfully!</strong><br>
+                        <small>
+                            <strong>${data.attendee_name}</strong> - ${data.checkpoint_name}<br>
+                            Status: <span class="badge bg-${statusBadge}">${data.status}</span> | 
+                            Time: ${data.timestamp}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        `;
+        messageContainer.innerHTML = message;
+
+        // Auto-hide success message after 5 seconds
+        setTimeout(() => {
+            messageContainer.innerHTML = '';
+        }, 5000);
+    }
+
+    function showMessage(message, type) {
+        const alertClass = type === 'danger' ? 'alert-danger' : 'alert-warning';
+        const icon = type === 'danger' ? 'bi-exclamation-triangle' : 'bi-info-circle';
+        
+        messageContainer.innerHTML = `
+            <div class="alert ${alertClass}">
+                <i class="${icon} me-2"></i>${message}
+            </div>
+        `;
+
+        // Auto-hide error messages after 3 seconds
+        setTimeout(() => {
+            messageContainer.innerHTML = '';
+        }, 3000);
+    }
+
+    function resetForm() {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Record Checkpoint Attendance';
+        attendeeIdInput.focus();
+    }
+
+    function getCSRFToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+});
+{% endif %}
+</script>
+
+<style>
+.card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.form-control-lg {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+#attendeeId {
+    letter-spacing: 0.2em;
+}
+
+.alert {
+    border-radius: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 0.5rem;
+    }
+    
+    .card {
+        margin: 0;
+    }
+}
+</style>
+{% endblock %}

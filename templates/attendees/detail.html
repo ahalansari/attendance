@@ -1,0 +1,103 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ attendee.full_name }} - Attendee Details{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-person"></i> {{ attendee.full_name }}</h1>
+        <p class="text-muted mb-0">ID: {{ attendee.attendee_id }}</p>
+    </div>
+    <div>
+        <a href="{% url 'attendees:edit' attendee.pk %}" class="btn btn-warning">
+            <i class="bi bi-pencil"></i> Edit Attendee
+        </a>
+        <a href="{% url 'attendees:list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Attendees
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Attendee Information</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Attendee ID:</strong> {{ attendee.attendee_id }}</p>
+                <p><strong>First Name:</strong> {{ attendee.first_name }}</p>
+                <p><strong>Last Name:</strong> {{ attendee.last_name }}</p>
+                <p><strong>Email:</strong> {{ attendee.email|default:"-" }}</p>
+                <p><strong>Phone:</strong> {{ attendee.phone|default:"-" }}</p>
+                <p><strong>Status:</strong> 
+                    {% if attendee.is_active %}
+                        <span class="badge bg-success">Active</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                    {% endif %}
+                </p>
+                <p><strong>Created:</strong> {{ attendee.created_at }}</p>
+                <p><strong>Created By:</strong> {{ attendee.created_by.username }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-check-square"></i> Attendance History</h5>
+                    <span class="badge bg-primary">{{ attendee.total_events_attended }} events attended</span>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if attendance_records %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Session Info</th>
+                                    <th>Date & Time</th>
+                                    <th>Location</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in attendance_records %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ record.event.name }}</strong>
+                                        {% if record.event.event_type != 'single' %}
+                                            <br><small class="text-muted">{{ record.event.get_event_type_display }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if record.event.event_type == 'single' %}
+                                            <span class="badge bg-secondary">Single Event</span>
+                                        {% else %}
+                                            <span class="badge bg-info">Regular Attendance</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ record.timestamp|date:"M d, Y" }}<br>
+                                        <small class="text-muted">{{ record.timestamp|time:"H:i:s" }}</small>
+                                    </td>
+                                    <td>{{ record.event.location|truncatechars:30 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-clipboard-x display-4 text-muted"></i>
+                        <h5 class="mt-3">No Attendance Records</h5>
+                        <p class="text-muted">This attendee hasn't attended any events yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

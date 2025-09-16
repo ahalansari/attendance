@@ -1,0 +1,104 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Attendance Records - QR Attendance System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-check-square"></i> Attendance Records</h1>
+    <a href="{% url 'reports:export' %}" class="btn btn-primary">
+        <i class="bi bi-download"></i> Export Data
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if records %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Attendee</th>
+                            <th>Event</th>
+                            <th>Date & Time</th>
+                            <th>Location</th>
+                            <th>IP Address</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                        <tr>
+                            <td>
+                                <strong>{{ record.attendee.full_name }}</strong><br>
+                                <small class="text-muted">ID: {{ record.attendee.attendee_id }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ record.event.name }}</strong><br>
+                                <small class="text-muted">{{ record.event.date }}</small>
+                            </td>
+                            <td>
+                                {{ record.timestamp|date:"M d, Y" }}<br>
+                                <small class="text-muted">{{ record.timestamp|time:"H:i:s" }}</small>
+                            </td>
+                            <td>{{ record.event.location|truncatechars:30 }}</td>
+                            <td>
+                                <code>{{ record.ip_address }}</code>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'attendees:detail' record.attendee.pk %}" class="btn btn-outline-primary" title="View Attendee">
+                                        <i class="bi bi-person"></i>
+                                    </a>
+                                    <a href="{% url 'events:detail' record.event.pk %}" class="btn btn-outline-info" title="View Event">
+                                        <i class="bi bi-calendar-event"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if is_paginated %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-clipboard-x display-1 text-muted"></i>
+                <h4 class="mt-3">No Attendance Records</h4>
+                <p class="text-muted">No attendance has been recorded yet. Create events and have attendees scan QR codes to start tracking attendance.</p>
+                <a href="{% url 'events:create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create First Event
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

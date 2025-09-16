@@ -1,0 +1,246 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Batch Generate Checkpoints - {{ event.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-calendar-plus"></i> Batch Generate Checkpoints
+                </h4>
+                <p class="mb-0 text-muted">{{ event.name }} | {{ event.date }} 
+                {% if event.end_date %}to {{ event.end_date }}{% endif %} ({{ event.duration_days }} days)</p>
+            </div>
+            <div class="card-body">
+                <form id="batchForm">
+                    {% csrf_token %}
+                    
+                    <!-- Checkpoint Template Selection -->
+                    <div class="mb-4">
+                        <h6><i class="bi bi-check2-square"></i> Select Checkpoint Templates</h6>
+                        <p class="text-muted">Choose which existing checkpoints to replicate across all event days.</p>
+                        
+                        {% if event.attendancecheckpoint_set.exists %}
+                            <div class="row">
+                                {% for checkpoint in event.attendancecheckpoint_set.all %}
+                                <div class="col-md-6 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               name="checkpoint_templates" value="{{ checkpoint.id }}" 
+                                               id="checkpoint_{{ checkpoint.id }}">
+                                        <label class="form-check-label" for="checkpoint_{{ checkpoint.id }}">
+                                            <strong>{{ checkpoint.name }}</strong>
+                                            <span class="badge bg-info ms-2">{{ checkpoint.get_checkpoint_type_display }}</span>
+                                            <br><small class="text-muted">{{ checkpoint.required_time }} (±{{ checkpoint.grace_period_minutes }} min)</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                No checkpoint templates found. Please create some checkpoints first.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Date Selection -->
+                    <div class="mb-4">
+                        <h6><i class="bi bi-calendar-range"></i> Target Dates</h6>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="date_option" 
+                                   id="all_days" value="all" checked>
+                            <label class="form-check-label" for="all_days">
+                                <strong>Generate for All Event Days</strong>
+                                <small class="text-muted d-block">Create checkpoints for all {{ event.duration_days }} days</small>
+                            </label>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="date_option" 
+                                   id="specific_days" value="specific">
+                            <label class="form-check-label" for="specific_days">
+                                <strong>Select Specific Days</strong>
+                                <small class="text-muted d-block">Choose individual dates</small>
+                            </label>
+                        </div>
+                        
+                        <div id="dateSelection" class="d-none">
+                            <div class="row">
+                                {% for date in event.get_available_dates %}
+                                <div class="col-md-4 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               name="selected_dates" value="{{ date }}" 
+                                               id="date_{{ date }}">
+                                        <label class="form-check-label" for="date_{{ date }}">
+                                            {{ date }}
+                                            {% if date == event.date %}<small class="text-primary">(Start)</small>{% endif %}
+                                            {% if date == event.end_date %}<small class="text-danger">(End)</small>{% endif %}
+                                        </label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generation Summary -->
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-info-circle"></i> What will happen:</h6>
+                        <ul class="mb-0" id="generationSummary">
+                            <li>Selected checkpoint templates will be duplicated for each target date</li>
+                            <li>Existing checkpoints will be skipped to avoid duplicates</li>
+                            <li>Each checkpoint will be linked to the appropriate session</li>
+                            <li>Generated checkpoints will be available through the single event QR code</li>
+                        </ul>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'events:checkpoints' event.pk %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="generateBtn">
+                            <i class="bi bi-calendar-plus"></i> Generate Checkpoints
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Results Card -->
+        <div id="resultsCard" class="card mt-4 d-none">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0"><i class="bi bi-check-circle"></i> Generation Complete</h6>
+            </div>
+            <div class="card-body">
+                <div id="resultsContent"></div>
+                <div class="mt-3">
+                    <a href="{% url 'events:checkpoints' event.pk %}" class="btn btn-primary">
+                        <i class="bi bi-eye"></i> View All Checkpoints
+                    </a>
+                    <a href="{% url 'events:qr' event.pk %}" class="btn btn-success">
+                        <i class="bi bi-qr-code"></i> View Event QR Code
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('batchForm');
+    const dateOptions = document.querySelectorAll('input[name="date_option"]');
+    const dateSelection = document.getElementById('dateSelection');
+    const generateBtn = document.getElementById('generateBtn');
+    const resultsCard = document.getElementById('resultsCard');
+    const resultsContent = document.getElementById('resultsContent');
+    
+    // Toggle date selection visibility
+    dateOptions.forEach(option => {
+        option.addEventListener('change', function() {
+            if (this.value === 'specific') {
+                dateSelection.classList.remove('d-none');
+            } else {
+                dateSelection.classList.add('d-none');
+            }
+        });
+    });
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        generateCheckpoints();
+    });
+    
+    function generateCheckpoints() {
+        const formData = new FormData(form);
+        
+        // Validate selections
+        const selectedTemplates = formData.getAll('checkpoint_templates');
+        if (selectedTemplates.length === 0) {
+            alert('Please select at least one checkpoint template.');
+            return;
+        }
+        
+        const dateOption = formData.get('date_option');
+        if (dateOption === 'specific') {
+            const selectedDates = formData.getAll('selected_dates');
+            if (selectedDates.length === 0) {
+                alert('Please select at least one date.');
+                return;
+            }
+        }
+        
+        // Debug: Add the date option to form data explicitly
+        if (dateOption === 'all') {
+            formData.set('generate_for_all_days', 'on');
+        }
+        
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
+        
+        fetch('{% url "events:batch_checkpoints" event.pk %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showResults(data);
+                resultsCard.classList.remove('d-none');
+                form.style.display = 'none';
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while generating checkpoints.');
+        })
+        .finally(() => {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="bi bi-calendar-plus"></i> Generate Checkpoints';
+        });
+    }
+    
+    function showResults(data) {
+        resultsContent.innerHTML = `
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <h3 class="text-success">${data.created_count}</h3>
+                    <p class="mb-0">Checkpoints Created</p>
+                </div>
+                <div class="col-md-4">
+                    <h3 class="text-info">${data.target_dates_count}</h3>
+                    <p class="mb-0">Days Covered</p>
+                </div>
+                <div class="col-md-4">
+                    <h3 class="text-primary">1</h3>
+                    <p class="mb-0">QR Code Needed</p>
+                </div>
+            </div>
+            <div class="alert alert-success mt-3">
+                <i class="bi bi-check-circle"></i> ${data.message}
+            </div>
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                <strong>Next Steps:</strong>
+                <ul class="mb-0">
+                    <li>All checkpoints are now configured for the event</li>
+                    <li>Use the single event QR code for all days</li>
+                    <li>Attendees will see relevant checkpoints based on the current date</li>
+                </ul>
+            </div>
+        `;
+    }
+});
+</script>
+{% endblock %}

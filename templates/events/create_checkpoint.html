@@ -1,0 +1,158 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Create Checkpoint - {{ event.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-plus-circle"></i> Create Attendance Checkpoint
+                </h4>
+                <p class="mb-0 text-muted">{{ event.name }} | {{ event.date }} | {{ event.start_time }} - {{ event.end_time }}</p>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="{{ form.checkpoint_type.id_for_label }}" class="form-label">Checkpoint Type *</label>
+                        {{ form.checkpoint_type }}
+                        {% if form.checkpoint_type.errors %}
+                            <div class="text-danger small">{{ form.checkpoint_type.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">Checkpoint Name *</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="text-danger small">{{ form.name.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-text">Will be auto-generated based on type if left empty</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="text-danger small">{{ form.description.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ form.required_time.id_for_label }}" class="form-label">Required Time *</label>
+                            {{ form.required_time }}
+                            {% if form.required_time.errors %}
+                                <div class="text-danger small">{{ form.required_time.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.grace_period_minutes.id_for_label }}" class="form-label">Grace Period (min) *</label>
+                            {{ form.grace_period_minutes }}
+                            {% if form.grace_period_minutes.errors %}
+                                <div class="text-danger small">{{ form.grace_period_minutes.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.order.id_for_label }}" class="form-label">Order *</label>
+                            {{ form.order }}
+                            {% if form.order.errors %}
+                                <div class="text-danger small">{{ form.order.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">Sequence number for this checkpoint</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check mt-4">
+                                {{ form.is_required }}
+                                <label class="form-check-label" for="{{ form.is_required.id_for_label }}">
+                                    Required Checkpoint
+                                </label>
+                                <div class="form-text">Must attendees complete this checkpoint?</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        A unique QR code will be automatically generated for this checkpoint.
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'events:checkpoints' event.pk %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Create Checkpoint
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Time Window Preview -->
+        <div class="card mt-4" id="timePreview" style="display: none;">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-clock"></i> Time Window Preview</h6>
+            </div>
+            <div class="card-body">
+                <div id="timeWindowInfo"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const requiredTimeInput = document.getElementById('id_required_time');
+    const gracePeriodInput = document.getElementById('id_grace_period_minutes');
+    const timePreview = document.getElementById('timePreview');
+    const timeWindowInfo = document.getElementById('timeWindowInfo');
+    
+    function updateTimeWindow() {
+        const requiredTime = requiredTimeInput.value;
+        const gracePeriod = parseInt(gracePeriodInput.value) || 15;
+        
+        if (requiredTime) {
+            // Calculate window times
+            const time = new Date(`2000-01-01 ${requiredTime}`);
+            const windowStart = new Date(time.getTime() - gracePeriod * 60000);
+            const windowEnd = new Date(time.getTime() + gracePeriod * 60000);
+            
+            const formatTime = (date) => date.toTimeString().slice(0, 5);
+            
+            timeWindowInfo.innerHTML = `
+                <div class="text-center">
+                    <h5>Required Time: <span class="text-primary">${requiredTime}</span></h5>
+                    <p class="mb-0">
+                        <strong>Valid Window:</strong> 
+                        <span class="text-success">${formatTime(windowStart)}</span> - 
+                        <span class="text-success">${formatTime(windowEnd)}</span>
+                    </p>
+                    <small class="text-muted">±${gracePeriod} minutes grace period</small>
+                </div>
+            `;
+            timePreview.style.display = 'block';
+        } else {
+            timePreview.style.display = 'none';
+        }
+    }
+    
+    requiredTimeInput.addEventListener('change', updateTimeWindow);
+    gracePeriodInput.addEventListener('input', updateTimeWindow);
+    
+    // Initial update
+    updateTimeWindow();
+});
+</script>
+{% endblock %}

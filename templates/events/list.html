@@ -1,0 +1,139 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Events - QR Attendance System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-calendar-event"></i> Events</h1>
+    <a href="{% url 'events:create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Create Event
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if events %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Event Name</th>
+                            <th>Type</th>
+                            <th>Date(s)</th>
+                            <th>Time</th>
+                            <th>Location</th>
+                            <th>Attendees</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in events %}
+                        <tr>
+                            <td>
+                                <strong>{{ event.name }}</strong>
+                                {% if event.description %}
+                                    <br><small class="text-muted">{{ event.description|truncatechars:50 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if event.event_type == 'single' %}
+                                    <span class="badge bg-secondary">Single</span>
+                                {% elif event.event_type == 'span' %}
+                                    <span class="badge bg-info">Multi-Day</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Recurring</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ event.date }}
+                                {% if event.end_date %}
+                                    <br><small class="text-muted">to {{ event.end_date }}</small>
+                                    {% if event.total_sessions > 0 %}
+                                        <br><small class="badge bg-light text-dark">{{ event.total_sessions }} sessions</small>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>{{ event.start_time }} - {{ event.end_time }}</td>
+                            <td>{{ event.location|truncatechars:30 }}</td>
+                            <td>
+                                <span class="badge bg-primary">{{ event.attendee_count }}</span>
+                            </td>
+                            <td>
+                                {% if event.is_ongoing %}
+                                    <span class="badge bg-success">Active</span>
+                                {% elif event.is_active %}
+                                    <span class="badge bg-info">Upcoming</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'events:detail' event.pk %}" class="btn btn-outline-primary" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'events:qr' event.pk %}" class="btn btn-outline-success" title="Event QR Code">
+                                        <i class="bi bi-qr-code"></i>
+                                    </a>
+                                    {% if event.event_type != 'single' %}
+                                        <a href="{% url 'events:sessions' event.pk %}" class="btn btn-outline-info" title="Sessions">
+                                            <i class="bi bi-calendar-week"></i>
+                                        </a>
+                                    {% endif %}
+                                    <a href="{% url 'events:attendees' event.pk %}" class="btn btn-outline-info" title="Attendees">
+                                        <i class="bi bi-people"></i>
+                                    </a>
+                                    <a href="{% url 'events:edit' event.pk %}" class="btn btn-outline-warning" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if is_paginated %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-calendar-x display-1 text-muted"></i>
+                <h4 class="mt-3">No Events Yet</h4>
+                <p class="text-muted">Create your first event to get started with QR attendance tracking.</p>
+                <a href="{% url 'events:create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create First Event
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
